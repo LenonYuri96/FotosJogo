@@ -1,0 +1,15 @@
+{
+  "titulo": "Quem é na Foto? 🕵️‍♂️",
+  "subtitulo": "Descubra quem são as personalidades quando eram crianças!",
+  "delayTransicaoMs": 800,
+  "animacaoTransicaoMs": 300,
+  "mensagens": {
+    "perfeito": "Lendário! Você acertou tudo de primeira! 🏆🔥",
+    "bom": "Mandou bem! Faltou pouco para gabaritar! 👀✨",
+    "baixo": "Passou longe! Precisa treinar essa memória fisionômica! 😅👓"
+  },
+  "compartilhamento": {
+    "titulo": "Jogo: Quem é na Foto?",
+    "hashtags": "Quiz,QuemENaFoto,Desafio"
+  }
+}
