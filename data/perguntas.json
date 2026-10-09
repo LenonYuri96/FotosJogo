@@ -34,6 +34,7 @@
     "Flavia Luisa Callegari Rodrigues",
     "Florisvaldo Cardozo Bomfim Junior",
     "Franco Michel Almeida Caixeta",
+    "Frederico Marinho Correia",
     "Gabriel Felipe Reis de Moraes",
     "Giovani Henrique da Silva",
     "Giovanni Wilson Bernardes",
@@ -45,6 +46,7 @@
     "John Wilson Bernardes Junior",
     "Joice das Gracas Santos",
     "Jose Eduardo Ferreira",
+    "Jose Wellington da Silva Machado",
     "Juarez Martins Deamo",
     "Juliana Rodrigues Nascimento",
     "Katia da Silva Nunes",
@@ -69,6 +71,7 @@
     "Renato Bruno Silva",
     "Renato Goncalves Ferreira",
     "Ricardo Lemos da Silva",
+    "Roberto Carlos Rodrigues",
     "Nino",
     "Silvanio Marcio Fernandes",
     "Thiago Borges Estevão",
@@ -176,7 +179,6 @@
       "fotoCrianca": "assets/img/WhatsApp Image 2026-10-09 at 10.15.38.jpeg",
       "hashResposta": "Diego Fabiano Goncalves Mutao"
     },
-
     {
       "id": 21,
       "fotoCrianca": "assets/img/WhatsApp Image 2026-10-09 at 11.24.57.jpeg",
@@ -186,6 +188,21 @@
       "id": 22,
       "fotoCrianca": "assets/img/WhatsApp Image 2026-10-09 at 13.47.26.jpeg",
       "hashResposta": "Leonardo Correa Ribeiro"
+    },
+    {
+      "id": 23,
+      "fotoCrianca": "assets/img/WhatsApp Image 2026-10-09 at 14.56.17.jpeg",
+      "hashResposta": "Silvanio Marcio Fernandes"
+    },
+    {
+      "id": 24,
+      "fotoCrianca": "assets/img/WhatsApp Image 2026-10-09 at 15.00.48.jpeg",
+      "hashResposta": "Aline de Fatima Pedrosa Teixeira"
+    },
+    {
+      "id": 25,
+      "fotoCrianca": "assets/img/WhatsApp Image 2026-10-09 at 15.07.51.jpeg",
+      "hashResposta": "Katia da Silva Nunes"
     }
   ]
 }
