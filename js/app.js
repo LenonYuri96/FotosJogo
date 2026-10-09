@@ -2,32 +2,69 @@
   "use strict";
 
   /* ==========================================================================
-     1. ESTADO PRIVADO DO JOGO (Blindado contra DevTools Console)
+     1. ESTADO PRIVADO DO JOGO
      ========================================================================== */
   let bancoNomes = [];
   let listaDesafios = [];
   let configuracoes = {
     titulo: "Quem é na Foto? 🕵️‍♂️",
-    subtitulo: "Descubra quem são quando eram crianças!",
+    subtitulo: "Descubra quem são as pessoas quando eram crianças!",
     mensagens: {
       perfeito: "Lendário! Você acertou tudo de primeira! 🏆🔥",
       bom: "Mandou bem! Faltou pouco para gabaritar! 👀✨",
-      baixo: "Passou longe! Precisa treinar essa memória! 😅👓",
+      baixo: "Passou longe! Precisa treinar essa memória fisionômica! 😅👓",
     },
     compartilhamento: {
       titulo: "Jogo: Quem é na Foto?",
-      hashtags: "Quiz,QuemENaFoto,DiaDasCriancas",
+      hashtags: "Quiz,QuemENaFoto,Desafio",
     },
   };
 
-  // Mapas de busca instantânea O(1)
+  // Tabela para priorização de gênero nos sorteios das alternativas (com Zirlei como feminino)
+  const PRIMEIROS_NOMES_FEMININOS = new Set([
+    "adriana",
+    "aline",
+    "amanda",
+    "ana",
+    "barbara",
+    "bárbara",
+    "bel",
+    "bianca",
+    "bibliana",
+    "carla",
+    "caroline",
+    "cassia",
+    "cássia",
+    "cristina",
+    "flavia",
+    "flávia",
+    "joice",
+    "juliana",
+    "katia",
+    "kátia",
+    "laenne",
+    "maristela",
+    "nubiane",
+    "priscila",
+    "zirlei",
+  ]);
+
+  function ehFeminino(nomeCompleto) {
+    if (!nomeCompleto) return false;
+    const primeiroNome = String(nomeCompleto)
+      .trim()
+      .split(" ")[0]
+      .toLowerCase();
+    return PRIMEIROS_NOMES_FEMININOS.has(primeiroNome);
+  }
+
   const mapaHashParaNome = new Map();
   const mapaNomeParaHash = new Map();
 
   let rodadaAtual = [];
   let indiceAtual = 0;
   let pontuacao = 0;
-  let respondendoBloqueado = false;
+  let opcaoSelecionadaAtual = null;
   const TOTAL_OPCOES = 4;
 
   /* ==========================================================================
@@ -50,19 +87,17 @@
   const barraProgresso = document.getElementById("barra-progresso");
   const badgeRevelacao = document.getElementById("badge-revelacao");
 
-  // Elementos do Card de Imagem e Compartilhamento
   const canvasCard = document.getElementById("canvas-card");
   const imgResultadoGerada = document.getElementById("img-resultado-gerada");
   const btnShareImagem = document.getElementById("btn-share-imagem");
   const btnDownloadImagem = document.getElementById("btn-download-imagem");
 
-  // Elementos Auxiliares Ocultos
   const placarFinal = document.getElementById("placar-final");
   const porcentagemAcerto = document.getElementById("porcentagem-acerto");
   const mensagemStatus = document.getElementById("mensagem-status");
 
   /* ==========================================================================
-     3. PRÉ-CARREGAMENTO DE IMAGENS (Zero Delay)
+     3. PRÉ-CARREGAMENTO DE IMAGENS
      ========================================================================== */
   function preCarregarImagens(desafios) {
     if (!Array.isArray(desafios)) return;
@@ -75,12 +110,12 @@
   }
 
   /* ==========================================================================
-     4. ÁUDIO SINTETIZADO (Web Audio API - Sem Arquivos Externos)
+     4. ÁUDIO SINTETIZADO (Toque Neutro)
      ========================================================================== */
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
   const audioCtx = AudioContextClass ? new AudioContextClass() : null;
 
-  function tocarSom(tipo) {
+  function tocarSomClique() {
     if (!audioCtx) return;
     try {
       if (audioCtx.state === "suspended") audioCtx.resume();
@@ -91,31 +126,20 @@
       gain.connect(audioCtx.destination);
 
       const agora = audioCtx.currentTime;
-
-      if (tipo === "acerto") {
-        osc.type = "sine";
-        osc.frequency.setValueAtTime(520, agora);
-        osc.frequency.exponentialRampToValueAtTime(880, agora + 0.15);
-        gain.gain.setValueAtTime(0.2, agora);
-        gain.gain.exponentialRampToValueAtTime(0.01, agora + 0.3);
-        osc.start(agora);
-        osc.stop(agora + 0.3);
-      } else if (tipo === "erro") {
-        osc.type = "sawtooth";
-        osc.frequency.setValueAtTime(220, agora);
-        osc.frequency.linearRampToValueAtTime(110, agora + 0.25);
-        gain.gain.setValueAtTime(0.22, agora);
-        gain.gain.exponentialRampToValueAtTime(0.01, agora + 0.3);
-        osc.start(agora);
-        osc.stop(agora + 0.3);
-      }
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(440, agora);
+      osc.frequency.exponentialRampToValueAtTime(320, agora + 0.1);
+      gain.gain.setValueAtTime(0.12, agora);
+      gain.gain.exponentialRampToValueAtTime(0.01, agora + 0.1);
+      osc.start(agora);
+      osc.stop(agora + 0.1);
     } catch (e) {
       console.warn("Áudio não executado:", e);
     }
   }
 
   /* ==========================================================================
-     5. EFEITO VISUAL DE CONFETES (Canvas Leve e Colorido)
+     5. EFEITO VISUAL DE CONFETES (Canvas)
      ========================================================================== */
   function dispararConfetes() {
     const canvas = document.createElement("canvas");
@@ -140,7 +164,7 @@
       "#8b5cf6",
       "#f97316",
     ];
-    const particulas = Array.from({ length: 50 }, () => ({
+    const particulas = Array.from({ length: 60 }, () => ({
       x: canvas.width / 2,
       y: canvas.height / 2,
       vx: (Math.random() - 0.5) * 16,
@@ -226,10 +250,8 @@
         fotoExibida.addEventListener("contextmenu", (e) => e.preventDefault());
       }
 
-      // Pré-carrega todas as imagens para evitar engasgos
       preCarregarImagens(listaDesafios);
 
-      // Pré-calcula os hashes de todos os 77 nomes
       await Promise.all(
         bancoNomes.map(async (nome) => {
           const hash = await calcularSHA256(nome);
@@ -238,30 +260,20 @@
         }),
       );
 
-      // Garante que cada desafio tenha seu hashResposta calculado e validado
       await Promise.all(
         listaDesafios.map(async (desafio) => {
           const entrada = String(desafio.hashResposta).trim();
+          if (mapaHashParaNome.has(entrada)) return;
 
-          // Se já for um hash existente no mapa, mantém
-          if (mapaHashParaNome.has(entrada)) {
-            return;
-          }
-
-          // Se for o nome por extenso, busca e converte para hash
           const nomeCorrespondente = bancoNomes.find(
             (n) => n.trim().toLowerCase() === entrada.toLowerCase(),
           );
 
           if (nomeCorrespondente) {
-            const hashGerado = mapaNomeParaHash.get(nomeCorrespondente);
-            desafio.hashResposta = hashGerado;
+            desafio.hashResposta = mapaNomeParaHash.get(nomeCorrespondente);
           } else {
-            // Se foi digitado de forma aproximada ou com hash próprio
             const hashDireto = await calcularSHA256(entrada);
-            if (mapaHashParaNome.has(hashDireto)) {
-              desafio.hashResposta = hashDireto;
-            }
+            desafio.hashResposta = hashDireto;
           }
         }),
       );
@@ -276,7 +288,7 @@
   function iniciarJogo() {
     pontuacao = 0;
     indiceAtual = 0;
-    respondendoBloqueado = false;
+    opcaoSelecionadaAtual = null;
     rodadaAtual = embaralhar(listaDesafios);
 
     telaInicio.classList.add("d-none");
@@ -286,37 +298,58 @@
     carregarPagina();
   }
 
-  function criarBotaoOpcao(nome, letra, desafio) {
+  function criarBotaoOpcao(nome, letra) {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "btn btn-option anim-slide-up";
     btn.innerHTML = `<span class="opt-letter">${letra}</span><span class="opt-name">${nome}</span>`;
-    btn.onclick = () => responder(nome, desafio, btn);
+    btn.onclick = () => selecionarOpcao(nome, btn);
     containerOpcoes.appendChild(btn);
   }
 
   /* ==========================================================================
-     9. CARREGAMENTO DA PERGUNTA (RESPOSTA CORRETA SEMPRE GARANTIDA)
+     9. SELEÇÃO DE OPÇÃO (PERMITE TROCAR LIVREMENTE ANTES DE AVANÇAR)
+     ========================================================================== */
+  function selecionarOpcao(nome, botaoClicado) {
+    opcaoSelecionadaAtual = nome;
+
+    const todosBotoes = containerOpcoes.querySelectorAll("button");
+    todosBotoes.forEach((b) => b.classList.remove("btn-selected"));
+    botaoClicado.classList.add("btn-selected");
+
+    tocarSomClique();
+
+    const ehUltima = indiceAtual === rodadaAtual.length - 1;
+    if (ehUltima) {
+      btnProxima.innerHTML = `Finalizar e Ver Resultado <i class="bi bi-trophy-fill ms-2"></i>`;
+    } else {
+      btnProxima.innerHTML = `Confirmar e Próxima <i class="bi bi-arrow-right-circle-fill ms-2"></i>`;
+    }
+
+    btnProxima.classList.remove("d-none");
+  }
+
+  /* ==========================================================================
+     10. CARREGAMENTO DA PERGUNTA COM PRIORIZAÇÃO DE GÊNERO
      ========================================================================== */
   function carregarPagina() {
-    respondendoBloqueado = false;
+    opcaoSelecionadaAtual = null;
     btnProxima.classList.add("d-none");
-    badgeRevelacao.classList.add("d-none");
+    if (badgeRevelacao) badgeRevelacao.classList.add("d-none");
     containerOpcoes.innerHTML = "";
 
     const desafio = rodadaAtual[indiceAtual];
     fotoExibida.src = encodeURI(desafio.fotoCrianca);
 
     indicadorPergunta.innerHTML = `<i class="bi bi-card-image me-1"></i> ${indiceAtual + 1} de ${rodadaAtual.length}`;
-    indicadorPontos.innerHTML = `<i class="bi bi-star-fill text-warning me-1"></i> ${pontuacao} pts`;
+    if (indicadorPontos) {
+      indicadorPontos.innerHTML = `<i class="bi bi-patch-question me-1"></i> Adivinhe!`;
+    }
     barraProgresso.style.width = `${(indiceAtual / rodadaAtual.length) * 100}%`;
 
     const letras = ["A", "B", "C", "D"];
-
-    // 1. Localiza com 100% de precisão o nome correto
     let nomeCorreto = mapaHashParaNome.get(desafio.hashResposta);
 
-    // Fallback de contingência caso venha o texto direto
     if (!nomeCorreto) {
       nomeCorreto = bancoNomes.find(
         (n) =>
@@ -328,78 +361,55 @@
       }
     }
 
-    // 2. Se por ventura não localizar, seleciona aleatório e avisa no console
     if (!nomeCorreto) {
-      console.warn(
-        `[AVISO] Foto ID ${desafio.id} sem correspondência exata de nome.`,
-      );
       const opcoesFallback = embaralhar(bancoNomes).slice(0, TOTAL_OPCOES);
-      opcoesFallback.forEach((nome, idx) =>
-        criarBotaoOpcao(nome, letras[idx], desafio),
-      );
+      opcoesFallback.forEach((nome, idx) => criarBotaoOpcao(nome, letras[idx]));
       return;
     }
 
-    // 3. Sorteia exatamente 3 nomes errados distintos
-    const erradas = bancoNomes.filter((n) => n !== nomeCorreto);
-    const erradasSorteadas = embaralhar(erradas).slice(0, TOTAL_OPCOES - 1);
+    // 1. Identifica o gênero correto (Zirlei agora é detectada como feminina)
+    const ehPessoaFeminina = ehFeminino(nomeCorreto);
 
-    // 4. Monta as 4 opções completas e embaralhadas
+    // 2. Filtra prioritariamente opções do mesmo gênero
+    const erradasMesmoGenero = bancoNomes.filter(
+      (n) => n !== nomeCorreto && ehFeminino(n) === ehPessoaFeminina,
+    );
+
+    const erradasOutroGenero = bancoNomes.filter(
+      (n) => n !== nomeCorreto && ehFeminino(n) !== ehPessoaFeminina,
+    );
+
+    // 3. Monta as opções garantindo que todos os 4 nomes sejam do mesmo gênero
+    const poolDisponivel = [
+      ...embaralhar(erradasMesmoGenero),
+      ...embaralhar(erradasOutroGenero),
+    ];
+
+    const erradasSorteadas = poolDisponivel.slice(0, TOTAL_OPCOES - 1);
     const quatroOpcoes = embaralhar([nomeCorreto, ...erradasSorteadas]);
+
     quatroOpcoes.forEach((nome, idx) => {
-      criarBotaoOpcao(nome, letras[idx], desafio);
+      criarBotaoOpcao(nome, letras[idx]);
     });
   }
 
   /* ==========================================================================
-     10. VALIDAÇÃO DE RESPOSTA
+     11. CONFIRMAÇÃO DA ESCOLHA AO CLICAR EM PRÓXIMA
      ========================================================================== */
-  async function responder(nomeEscolhido, desafio, botaoClicado) {
-    if (respondendoBloqueado) return;
-    respondendoBloqueado = true;
+  async function confirmarEAvancar() {
+    if (!opcaoSelecionadaAtual) return;
 
-    const todosBotoes = containerOpcoes.querySelectorAll("button");
-    todosBotoes.forEach((b) => (b.disabled = true));
-
+    const desafio = rodadaAtual[indiceAtual];
     const hashEscolhido =
-      mapaNomeParaHash.get(nomeEscolhido) ||
-      (await calcularSHA256(nomeEscolhido));
-    const acertou = hashEscolhido === desafio.hashResposta;
+      mapaNomeParaHash.get(opcaoSelecionadaAtual) ||
+      (await calcularSHA256(opcaoSelecionadaAtual));
 
-    if (acertou) {
+    if (hashEscolhido === desafio.hashResposta) {
       pontuacao++;
-      tocarSom("acerto");
-      dispararConfetes();
-
-      botaoClicado.classList.add("btn-correct", "anim-pulse");
-      badgeRevelacao.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i> ACERTOU!`;
-      badgeRevelacao.className =
-        "badge-feedback bg-success text-white anim-pop";
-    } else {
-      tocarSom("erro");
-      botaoClicado.classList.add("btn-wrong", "anim-shake");
-      badgeRevelacao.innerHTML = `<i class="bi bi-x-circle-fill me-1"></i> ERROU!`;
-      badgeRevelacao.className = "badge-feedback bg-danger text-white anim-pop";
-
-      // Revela o botão correto para o usuário aprender
-      for (const btn of todosBotoes) {
-        const spanNome = btn.querySelector(".opt-name");
-        if (
-          spanNome &&
-          mapaNomeParaHash.get(spanNome.textContent) === desafio.hashResposta
-        ) {
-          btn.classList.add("btn-correct");
-        }
-      }
     }
 
-    badgeRevelacao.classList.remove("d-none");
-    indicadorPontos.innerHTML = `<i class="bi bi-star-fill text-warning me-1"></i> ${pontuacao} pts`;
     barraProgresso.style.width = `${((indiceAtual + 1) / rodadaAtual.length) * 100}%`;
-    btnProxima.classList.remove("d-none");
-  }
 
-  function proximaPergunta() {
     indiceAtual++;
     if (indiceAtual < rodadaAtual.length) {
       carregarPagina();
@@ -409,7 +419,7 @@
   }
 
   /* ==========================================================================
-     11. GERADOR DO CARD DE RESULTADO EM IMAGEM (DIA DAS CRIANÇAS)
+     12. GERADOR DO CARD DE RESULTADO EM IMAGEM
      ========================================================================== */
   function desenharTextoComQuebra(
     ctx,
@@ -451,7 +461,6 @@
       await document.fonts.ready;
     }
 
-    // 1. Fundo Ensolarado e Lúdico
     const gradiente = ctx.createLinearGradient(0, 0, 1080, 1350);
     gradiente.addColorStop(0, "#fef3c7");
     gradiente.addColorStop(0.5, "#e0f2fe");
@@ -459,7 +468,6 @@
     ctx.fillStyle = gradiente;
     ctx.fillRect(0, 0, 1080, 1350);
 
-    // 2. Moldura Branca Estilizada
     ctx.fillStyle = "#ffffff";
     ctx.beginPath();
     if (typeof ctx.roundRect === "function") {
@@ -469,12 +477,10 @@
     }
     ctx.fill();
 
-    // Borda Colorida
     ctx.strokeStyle = "#38bdf8";
     ctx.lineWidth = 8;
     ctx.stroke();
 
-    // 3. Título Lúdico
     ctx.fillStyle = "#0284c7";
     ctx.font = "bold 60px 'Poppins', sans-serif";
     ctx.textAlign = "center";
@@ -484,12 +490,10 @@
     ctx.font = "bold 34px 'Poppins', sans-serif";
     ctx.fillText("Especial Dia das Crianças 🎉", 540, 230);
 
-    // 4. Emoji Central de Destaque
     ctx.font = "120px sans-serif";
     const icone = perc === 100 ? "🏆" : perc >= 50 ? "⭐" : "👀";
     ctx.fillText(icone, 540, 400);
 
-    // 5. Placar Central
     ctx.fillStyle = "#f0f9ff";
     ctx.strokeStyle = "#bae6fd";
     ctx.lineWidth = 4;
@@ -502,7 +506,6 @@
     ctx.fill();
     ctx.stroke();
 
-    // 6. Números de Acertos e Porcentagem
     ctx.fillStyle = "#0369a1";
     ctx.font = "bold 120px 'Poppins', sans-serif";
     ctx.fillText(`${acertos} / ${total}`, 540, 620);
@@ -511,12 +514,10 @@
     ctx.font = "bold 46px 'Poppins', sans-serif";
     ctx.fillText(`${perc}% DE ACERTO!`, 540, 740);
 
-    // 7. Frase com Quebra de Linha (NUNCA CORTA)
     ctx.fillStyle = "#1e293b";
     ctx.font = "bold 38px 'Poppins', sans-serif";
     desenharTextoComQuebra(ctx, mensagem, 540, 930, 860, 52);
 
-    // 8. Linha Divisória
     ctx.strokeStyle = "#e2e8f0";
     ctx.lineWidth = 3;
     ctx.beginPath();
@@ -524,7 +525,6 @@
     ctx.lineTo(840, 1070);
     ctx.stroke();
 
-    // 9. Chamada de Rodapé
     ctx.fillStyle = "#64748b";
     ctx.font = "600 32px 'Poppins', sans-serif";
     ctx.fillText("Será que você consegue me superar?", 540, 1140);
@@ -559,7 +559,7 @@
   }
 
   /* ==========================================================================
-     12. TELA FINAL
+     13. TELA FINAL
      ========================================================================== */
   async function finalizarJogo() {
     telaJogo.classList.add("d-none");
@@ -612,10 +612,10 @@
   }
 
   /* ==========================================================================
-     13. LISTENERS
+     14. LISTENERS
      ========================================================================== */
   if (btnIniciar) btnIniciar.addEventListener("click", iniciarJogo);
-  if (btnProxima) btnProxima.addEventListener("click", proximaPergunta);
+  if (btnProxima) btnProxima.addEventListener("click", confirmarEAvancar);
   if (btnReiniciar) btnReiniciar.addEventListener("click", iniciarJogo);
 
   document.addEventListener("DOMContentLoaded", inicializar);
