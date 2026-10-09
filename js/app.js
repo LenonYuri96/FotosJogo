@@ -2,7 +2,39 @@
   "use strict";
 
   /* ==========================================================================
-     1. ESTADO PRIVADO DO JOGO
+     1. INJEÇÃO DE ESTILOS VISUAIS NEUTROS (SEM ENTREGAR A RESPOSTA)
+     ========================================================================== */
+  const estiloDinamico = document.createElement("style");
+  estiloDinamico.textContent = `
+    @keyframes animPulsoNeutro {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.02); }
+      100% { transform: scale(1); }
+    }
+    @keyframes animFotoEntrada {
+      0% { opacity: 0; transform: scale(0.94); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+    /* Estilo neutro de confirmação: sem verde ou vermelho */
+    .btn-opcao-travada {
+      background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%) !important;
+      border-color: #0284c7 !important;
+      color: #ffffff !important;
+      box-shadow: 0 0 14px rgba(2, 132, 199, 0.45) !important;
+      animation: animPulsoNeutro 0.35s ease-in-out !important;
+    }
+    .btn-opcao-travada .opt-letter {
+      background: #ffffff !important;
+      color: #0369a1 !important;
+    }
+    .foto-transicao {
+      animation: animFotoEntrada 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+  `;
+  document.head.appendChild(estiloDinamico);
+
+  /* ==========================================================================
+     2. ESTADO PRIVADO DO JOGO
      ========================================================================== */
   let bancoNomes = [];
   let listaDesafios = [];
@@ -20,7 +52,6 @@
     },
   };
 
-  // Tabela para priorização de gênero nos sorteios das alternativas (com Zirlei como feminino)
   const PRIMEIROS_NOMES_FEMININOS = new Set([
     "adriana",
     "aline",
@@ -65,10 +96,11 @@
   let indiceAtual = 0;
   let pontuacao = 0;
   let opcaoSelecionadaAtual = null;
+  let travadoParaTransicao = false;
   const TOTAL_OPCOES = 4;
 
   /* ==========================================================================
-     2. ELEMENTOS DO DOM
+     3. ELEMENTOS DO DOM
      ========================================================================== */
   const telaInicio = document.getElementById("tela-inicio");
   const telaJogo = document.getElementById("tela-jogo");
@@ -97,51 +129,119 @@
   const mensagemStatus = document.getElementById("mensagem-status");
 
   /* ==========================================================================
-     3. PRÉ-CARREGAMENTO DE IMAGENS
-     ========================================================================== */
-  function preCarregarImagens(desafios) {
-    if (!Array.isArray(desafios)) return;
-    desafios.forEach((item) => {
-      if (item && item.fotoCrianca) {
-        const img = new Image();
-        img.src = encodeURI(item.fotoCrianca);
-      }
-    });
-  }
-
-  /* ==========================================================================
-     4. ÁUDIO SINTETIZADO (Toque Neutro)
+     4. ÁUDIO SINTETIZADO (Web Audio API)
      ========================================================================== */
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-  const audioCtx = AudioContextClass ? new AudioContextClass() : null;
+  let audioCtx = null;
 
+  function obterAudioContext() {
+    if (!audioCtx && AudioContextClass) {
+      audioCtx = new AudioContextClass();
+    }
+    if (audioCtx && audioCtx.state === "suspended") {
+      audioCtx.resume();
+    }
+    return audioCtx;
+  }
+
+  // Toque suave ao clicar na alternativa
   function tocarSomClique() {
-    if (!audioCtx) return;
+    const ctx = obterAudioContext();
+    if (!ctx) return;
     try {
-      if (audioCtx.state === "suspended") audioCtx.resume();
-
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
       osc.connect(gain);
-      gain.connect(audioCtx.destination);
+      gain.connect(ctx.destination);
 
-      const agora = audioCtx.currentTime;
+      const agora = ctx.currentTime;
       osc.type = "sine";
       osc.frequency.setValueAtTime(440, agora);
-      osc.frequency.exponentialRampToValueAtTime(320, agora + 0.1);
-      gain.gain.setValueAtTime(0.12, agora);
-      gain.gain.exponentialRampToValueAtTime(0.01, agora + 0.1);
+      osc.frequency.exponentialRampToValueAtTime(320, agora + 0.07);
+      gain.gain.setValueAtTime(0.1, agora);
+      gain.gain.exponentialRampToValueAtTime(0.01, agora + 0.07);
       osc.start(agora);
-      osc.stop(agora + 0.1);
-    } catch (e) {
-      console.warn("Áudio não executado:", e);
-    }
+      osc.stop(agora + 0.07);
+    } catch (e) {}
+  }
+
+  // Som neutro de confirmação (sem dar pistas de acerto ou erro)
+  function tocarSomConfirmacaoNeutra() {
+    const ctx = obterAudioContext();
+    if (!ctx) return;
+    try {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      const agora = ctx.currentTime;
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(520, agora);
+      osc.frequency.exponentialRampToValueAtTime(680, agora + 0.12);
+      gain.gain.setValueAtTime(0.12, agora);
+      gain.gain.exponentialRampToValueAtTime(0.01, agora + 0.12);
+      osc.start(agora);
+      osc.stop(agora + 0.12);
+    } catch (e) {}
+  }
+
+  // Fanfarra tocada exclusivamente na TELA FINAL
+  function tocarSomFanfarra() {
+    const ctx = obterAudioContext();
+    if (!ctx) return;
+    try {
+      const acordes = [
+        { notas: [523.25, 659.25], t: 0.0, d: 0.2 },
+        { notas: [587.33, 698.46], t: 0.22, d: 0.2 },
+        { notas: [659.25, 783.99], t: 0.44, d: 0.2 },
+        { notas: [783.99, 1046.5], t: 0.68, d: 0.6 },
+      ];
+      acordes.forEach((a) => {
+        a.notas.forEach((freq) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+
+          const start = ctx.currentTime + a.t;
+          osc.type = "triangle";
+          osc.frequency.setValueAtTime(freq, start);
+          gain.gain.setValueAtTime(0.2, start);
+          gain.gain.exponentialRampToValueAtTime(0.001, start + a.d);
+          osc.start(start);
+          osc.stop(start + a.d);
+        });
+      });
+    } catch (e) {}
+  }
+
+  function tocarSomDerrota() {
+    const ctx = obterAudioContext();
+    if (!ctx) return;
+    try {
+      const tons = [293.66, 277.18, 261.63, 246.94];
+      tons.forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        const tempo = ctx.currentTime + idx * 0.22;
+        osc.type = "sawtooth";
+        osc.frequency.setValueAtTime(freq, tempo);
+        gain.gain.setValueAtTime(0.12, tempo);
+        gain.gain.exponentialRampToValueAtTime(0.001, tempo + 0.3);
+        osc.start(tempo);
+        osc.stop(tempo + 0.3);
+      });
+    } catch (e) {}
   }
 
   /* ==========================================================================
-     5. EFEITO VISUAL DE CONFETES (Canvas)
+     5. EFEITO DE CONFETES (APENAS NA VITÓRIA FINAL)
      ========================================================================== */
-  function dispararConfetes() {
+  function dispararConfetes(quantidade = 80) {
     const canvas = document.createElement("canvas");
     canvas.style.position = "fixed";
     canvas.style.top = "0";
@@ -164,15 +264,15 @@
       "#8b5cf6",
       "#f97316",
     ];
-    const particulas = Array.from({ length: 60 }, () => ({
+    const particulas = Array.from({ length: quantidade }, () => ({
       x: canvas.width / 2,
-      y: canvas.height / 2,
-      vx: (Math.random() - 0.5) * 16,
-      vy: (Math.random() - 0.8) * 18,
+      y: canvas.height * 0.45,
+      vx: (Math.random() - 0.5) * 18,
+      vy: (Math.random() - 0.8) * 22,
       cor: cores[Math.floor(Math.random() * cores.length)],
       tamanho: Math.random() * 8 + 4,
       rotacao: Math.random() * 360,
-      vRot: (Math.random() - 0.5) * 12,
+      vRot: (Math.random() - 0.5) * 14,
     }));
 
     let frames = 0;
@@ -181,7 +281,7 @@
       particulas.forEach((p) => {
         p.x += p.vx;
         p.y += p.vy;
-        p.vy += 0.42;
+        p.vy += 0.44;
         p.rotacao += p.vRot;
 
         ctx.save();
@@ -193,7 +293,7 @@
       });
 
       frames++;
-      if (frames < 65) {
+      if (frames < 75) {
         requestAnimationFrame(animar);
       } else {
         canvas.remove();
@@ -203,8 +303,18 @@
   }
 
   /* ==========================================================================
-     6. CRIPTOGRAFIA SHA-256 E UTILITÁRIOS
+     6. PRÉ-CARREGAMENTO E CRIPTOGRAFIA
      ========================================================================== */
+  function preCarregarImagens(desafios) {
+    if (!Array.isArray(desafios)) return;
+    desafios.forEach((item) => {
+      if (item && item.fotoCrianca) {
+        const img = new Image();
+        img.src = encodeURI(item.fotoCrianca);
+      }
+    });
+  }
+
   async function calcularSHA256(texto) {
     if (!texto) return "";
     const encoder = new TextEncoder();
@@ -225,7 +335,7 @@
   }
 
   /* ==========================================================================
-     7. INICIALIZAÇÃO E NORMALIZAÇÃO DE DADOS
+     7. INICIALIZAÇÃO
      ========================================================================== */
   async function inicializar() {
     try {
@@ -240,10 +350,17 @@
       const configJson = await resConfig.json();
       configuracoes = { ...configuracoes, ...configJson };
 
-      if (txtTitulo && configuracoes.titulo)
-        txtTitulo.textContent = configuracoes.titulo;
-      if (txtDescricao && configuracoes.subtitulo)
-        txtDescricao.textContent = configuracoes.subtitulo;
+      const tituloFinal =
+        configJson.metadados?.titulo ||
+        configJson.titulo ||
+        configuracoes.titulo;
+      const subtituloFinal =
+        configJson.metadados?.subtitulo ||
+        configJson.subtitulo ||
+        configuracoes.subtitulo;
+
+      if (txtTitulo) txtTitulo.textContent = tituloFinal;
+      if (txtDescricao) txtDescricao.textContent = subtituloFinal;
 
       if (fotoExibida) {
         fotoExibida.setAttribute("draggable", "false");
@@ -289,6 +406,7 @@
     pontuacao = 0;
     indiceAtual = 0;
     opcaoSelecionadaAtual = null;
+    travadoParaTransicao = false;
     rodadaAtual = embaralhar(listaDesafios);
 
     telaInicio.classList.add("d-none");
@@ -302,13 +420,17 @@
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "btn btn-option anim-slide-up";
+    btn.dataset.nome = nome;
     btn.innerHTML = `<span class="opt-letter">${letra}</span><span class="opt-name">${nome}</span>`;
-    btn.onclick = () => selecionarOpcao(nome, btn);
+    btn.onclick = () => {
+      if (travadoParaTransicao) return;
+      selecionarOpcao(nome, btn);
+    };
     containerOpcoes.appendChild(btn);
   }
 
   /* ==========================================================================
-     9. SELEÇÃO DE OPÇÃO (PERMITE TROCAR LIVREMENTE ANTES DE AVANÇAR)
+     9. SELEÇÃO DE OPÇÃO (PERMITE ALTERNAR LIVREMENTE)
      ========================================================================== */
   function selecionarOpcao(nome, botaoClicado) {
     opcaoSelecionadaAtual = nome;
@@ -321,30 +443,40 @@
 
     const ehUltima = indiceAtual === rodadaAtual.length - 1;
     if (ehUltima) {
-      btnProxima.innerHTML = `Finalizar e Ver Resultado <i class="bi bi-trophy-fill ms-2"></i>`;
+      btnProxima.innerHTML = `Finalizar Desafio <i class="bi bi-trophy-fill ms-2"></i>`;
     } else {
-      btnProxima.innerHTML = `Confirmar e Próxima <i class="bi bi-arrow-right-circle-fill ms-2"></i>`;
+      btnProxima.innerHTML = `Confirmar e Avançar <i class="bi bi-arrow-right-circle-fill ms-2"></i>`;
     }
 
     btnProxima.classList.remove("d-none");
   }
 
   /* ==========================================================================
-     10. CARREGAMENTO DA PERGUNTA COM PRIORIZAÇÃO DE GÊNERO
+     10. CARREGAMENTO DA PERGUNTA (SEM PONTUAÇÃO PARCIAL)
      ========================================================================== */
   function carregarPagina() {
     opcaoSelecionadaAtual = null;
+    travadoParaTransicao = false;
     btnProxima.classList.add("d-none");
-    if (badgeRevelacao) badgeRevelacao.classList.add("d-none");
+    if (badgeRevelacao) {
+      badgeRevelacao.classList.add("d-none");
+    }
     containerOpcoes.innerHTML = "";
 
     const desafio = rodadaAtual[indiceAtual];
     fotoExibida.src = encodeURI(desafio.fotoCrianca);
 
-    indicadorPergunta.innerHTML = `<i class="bi bi-card-image me-1"></i> ${indiceAtual + 1} de ${rodadaAtual.length}`;
+    fotoExibida.classList.remove("foto-transicao");
+    void fotoExibida.offsetWidth;
+    fotoExibida.classList.add("foto-transicao");
+
+    indicadorPergunta.innerHTML = `<i class="bi bi-card-image me-1"></i> Foto ${indiceAtual + 1} de ${rodadaAtual.length}`;
+
+    // Totalmente neutro: sem mostrar pontuação para não entregar acertos/erros
     if (indicadorPontos) {
-      indicadorPontos.innerHTML = `<i class="bi bi-patch-question me-1"></i> Adivinhe!`;
+      indicadorPontos.innerHTML = `<i class="bi bi-patch-question me-1"></i> Quem será?`;
     }
+
     barraProgresso.style.width = `${(indiceAtual / rodadaAtual.length) * 100}%`;
 
     const letras = ["A", "B", "C", "D"];
@@ -367,10 +499,8 @@
       return;
     }
 
-    // 1. Identifica o gênero correto (Zirlei agora é detectada como feminina)
     const ehPessoaFeminina = ehFeminino(nomeCorreto);
 
-    // 2. Filtra prioritariamente opções do mesmo gênero
     const erradasMesmoGenero = bancoNomes.filter(
       (n) => n !== nomeCorreto && ehFeminino(n) === ehPessoaFeminina,
     );
@@ -379,7 +509,6 @@
       (n) => n !== nomeCorreto && ehFeminino(n) !== ehPessoaFeminina,
     );
 
-    // 3. Monta as opções garantindo que todos os 4 nomes sejam do mesmo gênero
     const poolDisponivel = [
       ...embaralhar(erradasMesmoGenero),
       ...embaralhar(erradasOutroGenero),
@@ -394,28 +523,51 @@
   }
 
   /* ==========================================================================
-     11. CONFIRMAÇÃO DA ESCOLHA AO CLICAR EM PRÓXIMA
+     11. CONFIRMAÇÃO SILENCIOSA (SEM FEEDBACK DE ACERTO OU ERRO)
      ========================================================================== */
   async function confirmarEAvancar() {
-    if (!opcaoSelecionadaAtual) return;
+    if (!opcaoSelecionadaAtual || travadoParaTransicao) return;
+    travadoParaTransicao = true;
+    btnProxima.classList.add("d-none");
 
     const desafio = rodadaAtual[indiceAtual];
     const hashEscolhido =
       mapaNomeParaHash.get(opcaoSelecionadaAtual) ||
       (await calcularSHA256(opcaoSelecionadaAtual));
 
+    // Computa a pontuação em segredo absoluto
     if (hashEscolhido === desafio.hashResposta) {
       pontuacao++;
     }
 
+    // Som e visual 100% neutros
+    tocarSomConfirmacaoNeutra();
+
+    const botoes = containerOpcoes.querySelectorAll("button");
+    botoes.forEach((b) => {
+      if (b.dataset.nome === opcaoSelecionadaAtual) {
+        b.classList.add("btn-opcao-travada");
+      }
+    });
+
+    if (badgeRevelacao) {
+      badgeRevelacao.textContent = "Resposta registrada! 🔒";
+      badgeRevelacao.className =
+        "badge bg-secondary p-2 mt-2 shadow anim-slide-up";
+      badgeRevelacao.classList.remove("d-none");
+    }
+
     barraProgresso.style.width = `${((indiceAtual + 1) / rodadaAtual.length) * 100}%`;
 
-    indiceAtual++;
-    if (indiceAtual < rodadaAtual.length) {
-      carregarPagina();
-    } else {
-      finalizarJogo();
-    }
+    // Transição rápida e imperceptível
+    setTimeout(() => {
+      indiceAtual++;
+      if (indiceAtual < rodadaAtual.length) {
+        carregarPagina();
+      } else {
+        finalizarJogo();
+      }
+    }, 450);
   }
 
   /* ==========================================================================
@@ -429,7 +581,7 @@
     larguraMaxima,
     alturaLinha,
   ) {
-    const palavras = texto.split(" ");
+    const palavras = String(texto || "").split(" ");
     let linha = "";
     const linhas = [];
 
@@ -457,9 +609,7 @@
     canvas.height = 1350;
     const ctx = canvas.getContext("2d");
 
-    if (document.fonts) {
-      await document.fonts.ready;
-    }
+    if (document.fonts) await document.fonts.ready;
 
     const gradiente = ctx.createLinearGradient(0, 0, 1080, 1350);
     gradiente.addColorStop(0, "#fef3c7");
@@ -488,10 +638,11 @@
 
     ctx.fillStyle = "#f97316";
     ctx.font = "bold 34px 'Poppins', sans-serif";
-    ctx.fillText("Especial Dia das Crianças 🎉", 540, 230);
+    ctx.fillText("Especial Infância dos Colegas 🎉", 540, 230);
 
     ctx.font = "120px sans-serif";
-    const icone = perc === 100 ? "🏆" : perc >= 50 ? "⭐" : "👀";
+    const icone =
+      perc === 100 ? "🏆" : perc >= 70 ? "⭐" : perc >= 40 ? "👀" : "😅";
     ctx.fillText(icone, 540, 400);
 
     ctx.fillStyle = "#f0f9ff";
@@ -558,8 +709,23 @@
     link.remove();
   }
 
+  function animarContador(elemento, valorFinal, sufixo = "") {
+    if (!elemento) return;
+    let atual = 0;
+    const duracao = 900;
+    const passo = Math.max(1, Math.floor(valorFinal / 30));
+    const intervalo = setInterval(() => {
+      atual += passo;
+      if (atual >= valorFinal) {
+        atual = valorFinal;
+        clearInterval(intervalo);
+      }
+      elemento.textContent = `${atual}${sufixo}`;
+    }, duracao / 30);
+  }
+
   /* ==========================================================================
-     13. TELA FINAL
+     13. TELA FINAL (ONDE TUDO É FINALMENTE REVELADO!)
      ========================================================================== */
   async function finalizarJogo() {
     telaJogo.classList.add("d-none");
@@ -568,16 +734,49 @@
     const total = rodadaAtual.length;
     const perc = Math.round((pontuacao / total) * 100);
 
-    let statusMsg = configuracoes.mensagens.baixo;
-    if (perc === 100) {
-      statusMsg = configuracoes.mensagens.perfeito;
-      dispararConfetes();
-    } else if (perc >= 50) {
-      statusMsg = configuracoes.mensagens.bom;
+    let statusMsg = "Fim de jogo!";
+    let deveLancarConfete = false;
+
+    if (configuracoes.mensagensFinais?.faixas) {
+      const faixaEncontrada = configuracoes.mensagensFinais.faixas.find(
+        (f) => perc >= f.minPercentual,
+      );
+      if (faixaEncontrada) {
+        statusMsg = faixaEncontrada.mensagem;
+        deveLancarConfete = Boolean(faixaEncontrada.confete);
+
+        if (
+          faixaEncontrada.som === "vitoria_epica" ||
+          faixaEncontrada.som === "vitoria_boa"
+        ) {
+          tocarSomFanfarra();
+        } else if (faixaEncontrada.som === "derrota") {
+          tocarSomDerrota();
+        } else {
+          tocarSomFanfarra();
+        }
+      }
+    } else if (configuracoes.mensagens) {
+      if (perc === 100) {
+        statusMsg = configuracoes.mensagens.perfeito;
+        deveLancarConfete = true;
+        tocarSomFanfarra();
+      } else if (perc >= 50) {
+        statusMsg = configuracoes.mensagens.bom;
+        tocarSomFanfarra();
+      } else {
+        statusMsg = configuracoes.mensagens.baixo;
+        tocarSomDerrota();
+      }
+    }
+
+    if (deveLancarConfete) {
+      dispararConfetes(110);
+      setTimeout(() => dispararConfetes(70), 500);
     }
 
     if (placarFinal) placarFinal.textContent = `${pontuacao} / ${total}`;
-    if (porcentagemAcerto) porcentagemAcerto.textContent = `${perc}%`;
+    if (porcentagemAcerto) animarContador(porcentagemAcerto, perc, "%");
     if (mensagemStatus) mensagemStatus.textContent = statusMsg;
 
     const { dataUrl, file } = await gerarImagemCardResultado(
@@ -595,9 +794,7 @@
               files: [file],
               title: "Meu Resultado: Quem é na Foto?",
             });
-          } catch (err) {
-            console.log("Compartilhamento cancelado.");
-          }
+          } catch (err) {}
         } else {
           baixarImagem(dataUrl);
         }
@@ -605,9 +802,7 @@
     }
 
     if (btnDownloadImagem) {
-      btnDownloadImagem.onclick = () => {
-        baixarImagem(dataUrl);
-      };
+      btnDownloadImagem.onclick = () => baixarImagem(dataUrl);
     }
   }
 

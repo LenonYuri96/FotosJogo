@@ -1,15 +1,109 @@
 {
-  "titulo": "Quem é na Foto? 🕵️‍♂️",
-  "subtitulo": "Descubra quem são as personalidades quando eram crianças!",
-  "delayTransicaoMs": 800,
-  "animacaoTransicaoMs": 300,
-  "mensagens": {
-    "perfeito": "Lendário! Você acertou tudo de primeira! 🏆🔥",
-    "bom": "Mandou bem! Faltou pouco para gabaritar! 👀✨",
-    "baixo": "Passou longe! Precisa treinar essa memória fisionômica! 😅👓"
+  "metadados": {
+    "id": "quiz-quem-e-na-foto-crianca",
+    "versao": "2.0.0",
+    "titulo": "Quem é na Foto? 🕵️‍♂️",
+    "subtitulo": "Descubra quem são as celebridades quando eram apenas crianças!",
+    "descricao": "Será que você reconhece ícones do esporte, música e cinema antes da fama? Teste sua memória fisionômica agora!",
+    "categoria": "Trivia & Celebridades",
+    "dificuldadeGeral": "Média"
   },
+
+  "gameplay": {
+    "tempoPorPerguntaSegundos": 15,
+    "vidasIniciais": 3,
+    "permitirPular": true,
+    "maximoPulos": 2,
+    "sistemaDicas": {
+      "habilitado": true,
+      "maximoPorPartida": 3,
+      "penalidadePontos": 50,
+      "textoBotao": "Pedir uma Dica 💡"
+    },
+    "pontuacao": {
+      "basePorAcerto": 100,
+      "bonusVelocidade": true,
+      "multiplicadorCombo": 1.2
+    }
+  },
+
+  "transicoesETempos": {
+    "delayTransicaoMs": 900,
+    "animacaoTransicaoMs": 350,
+    "tempoAlertaTempoAcabandoMs": 5000
+  },
+
+  "ui": {
+    "botoes": {
+      "iniciar": "Começar Desafio 🚀",
+      "proxima": "Próxima Foto ➡️",
+      "pular": "Pular Pergunta ⏭️",
+      "rejogar": "Tentar Novamente 🔄",
+      "compartilhar": "Desafiar Amigos 📲",
+      "verGabarito": "Ver Respostas 📋"
+    },
+    "rotulos": {
+      "perguntaContador": "Foto {atual} de {total}",
+      "pontuacaoAtual": "Pontos: {pontos}",
+      "tempoRestante": "Tempo: {tempo}s",
+      "comboAtivo": "Combo {multiplicador}x! 🔥",
+      "carregando": "Buscando o álbum de infância... 📷"
+    }
+  },
+
+  "feedbacksInstantaneos": {
+    "acerto": [
+      "Cravou! Fisionomia inconfundível! 🎯",
+      "Na mosca! 👏",
+      "Você tem olho de águia! 🦅"
+    ],
+    "erro": [
+      "Passou longe! 😅",
+      "Mudou bastante, né? Quase impossível! 👀",
+      "Ops! Não foi dessa vez."
+    ],
+    "tempoEsgotado": "O tempo voou! ⏰"
+  },
+
+  "mensagensFinais": {
+    "faixas": [
+      {
+        "minPercentual": 100,
+        "titulo": "Visão de Raio-X! 🏆🔥",
+        "mensagem": "Inacreditável! Você gabaritou de primeira. Nem a própria mãe deles acertaria tanto!",
+        "confete": true,
+        "som": "vitoria_epica"
+      },
+      {
+        "minPercentual": 80,
+        "titulo": "Quase um Detetive! 🕵️✨",
+        "mensagem": "Mandou bem demais! Apenas alguns detalhes te impediram do 100%.",
+        "confete": true,
+        "som": "vitoria_boa"
+      },
+      {
+        "minPercentual": 50,
+        "titulo": "Memória Mediana! 🤔",
+        "mensagem": "Você mandou bem, mas algumas carinhas de bebê te enganaram direitinho.",
+        "confete": false,
+        "som": "neutro"
+      },
+      {
+        "minPercentual": 0,
+        "titulo": "Precisa de Óculos Novos! 👓😅",
+        "mensagem": "Passou longe! Para você, até o Faustão criança parecia o Brad Pitt.",
+        "confete": false,
+        "som": "derrota"
+      }
+    ]
+  },
+
   "compartilhamento": {
-    "titulo": "Jogo: Quem é na Foto?",
-    "hashtags": "Quiz,QuemENaFoto,Desafio"
+    "tituloPadrao": "Jogo: Quem é na Foto? 🕵️‍♂️",
+    "templates": {
+      "whatsapp": "Fiz {pontos} pontos ({acertos}/{total}) no quiz 'Quem é na Foto?'! Duvido você reconhecer essas celebridades crianças melhor que eu: {url}",
+      "twitter": "Acertei {acertos}/{total} no 'Quem é na Foto?' 👶➡️⭐! {url} #{hashtags}"
+    },
+    "hashtags": ["Quiz", "QuemENaFoto", "Nostalgia", "Desafio"]
   }
 }
